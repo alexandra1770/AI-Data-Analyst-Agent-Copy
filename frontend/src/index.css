@@ -1,0 +1,151 @@
+
+/* Global dashboard styles */
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* AI chat markdown, charts and reports */
+
+.message-content {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.message-content p {
+  margin: 0 0 10px;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.message-content strong {
+  font-weight: 700;
+}
+
+.message-content ul,
+.message-content ol {
+  padding-left: 22px;
+  margin: 10px 0;
+}
+
+.message-content li {
+  margin-bottom: 5px;
+}
+
+.message-content code {
+  background: #e9edf8;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.message-content pre {
+  overflow-x: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: #e9edf8;
+}
+
+.message-content pre code {
+  padding: 0;
+}
+
+.message-charts,
+.message-reports {
+  margin-top: 16px;
+  width: 100%;
+}
+
+.chart-container {
+  background: #ffffff;
+  border: 1px solid #e5eaf4;
+  border-radius: 14px;
+  padding: 18px;
+  margin-top: 12px;
+}
+
+.chart-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: #172445;
+  margin-bottom: 12px;
+}
+
+.analysis-chart {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.chart-link {
+  display: inline-block;
+  margin-top: 12px;
+  color: #4361ee;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.chart-link:hover {
+  text-decoration: underline;
+}
+
+.report-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: #f1f4ff;
+  border: 1px solid #dfe6ff;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-top: 10px;
+  color: #4361ee;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.report-link:hover {
+  background: #e7edff;
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #53617c;
+}
+
+.loading-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #4361ee;
+  animation: loading-pulse 1s ease-in-out infinite;
+}
+
+@keyframes loading-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
