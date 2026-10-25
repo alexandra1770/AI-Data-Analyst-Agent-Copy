@@ -1,17 +1,17 @@
-
 # Creating FastAPI application
 
 from pathlib import Path
+from uuid import UUID, uuid4
 
+from fastapi.encoders import jsonable_encoder
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import text
 
 from src.agent import agent
 from src.database import engine
-
 
 app = FastAPI(
     title="AI Data Analyst Agent API",
@@ -19,34 +19,27 @@ app = FastAPI(
     version="1.0.0"
 )
 
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173"
-    ],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"]
 )
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 
 @app.get("/reports/list")
 def list_reports():
     reports_directory = BASE_DIR / "outputs" / "reports"
-
     if not reports_directory.exists():
         return {"reports": [], "total": 0}
 
     reports = []
-
     for file in reports_directory.glob("*.md"):
         if not file.is_file():
             continue
-
         reports.append({
             "filename": file.name,
             "name": file.stem.replace("_", " ").title(),
@@ -54,67 +47,61 @@ def list_reports():
             "size_kb": round(file.stat().st_size / 1024, 2),
             "created_at": file.stat().st_mtime
         })
-
-    reports.sort(
-        key=lambda report: report["created_at"],
-        reverse=True
-    )
-
-    return {
-        "reports": reports,
-        "total": len(reports)
-    }
+    reports.sort(key=lambda report: report["created_at"], reverse=True)
+    return {"reports": reports, "total": len(reports)}
 
 
-
-app.mount(
-    "/charts",
-    StaticFiles(directory=BASE_DIR / "outputs" / "charts"),
-    name="charts"
-)
-
-app.mount(
-    "/reports",
-    StaticFiles(directory=BASE_DIR / "outputs" / "reports"),
-    name="reports"
-)
+app.mount("/charts", StaticFiles(directory=BASE_DIR / "outputs" / "charts"), name="charts")
+app.mount("/reports", StaticFiles(directory=BASE_DIR / "outputs" / "reports"), name="reports")
 
 
 class AnalysisRequest(BaseModel):
     question: str
+    # Optional for backward compatibility with existing API clients and tests.
+    conversation_id: str | None = None
+
+    @field_validator("question")
+    @classmethod
+    def validate_question(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Question cannot be empty.")
+        if len(value) > 2000:
+            raise ValueError("Question is too long.")
+        return value
+
+    @field_validator("conversation_id")
+    @classmethod
+    def validate_conversation_id(cls, value):
+        if value is None:
+            return None
+        try:
+            return str(UUID(value))
+        except (ValueError, AttributeError, TypeError):
+            raise ValueError("conversation_id must be a valid UUID.")
 
 
 @app.get("/")
 def root():
-    return {
-        "message": "AI Data Analyst Agent API is running"
-    }
+    return {"message": "AI Data Analyst Agent API is running"}
 
 
 @app.get("/health")
 def health_check():
-    return {
-        "status": "healthy"
-    }
+    return {"status": "healthy"}
 
 
 @app.get("/dashboard/stats")
 def get_dashboard_stats():
     try:
         with engine.connect() as connection:
-            result = connection.execute(
-                text(
-                    """
-                    SELECT
-                        (SELECT COALESCE(SUM(price), 0)
-                         FROM order_items) AS total_revenue,
-                        (SELECT COUNT(*) FROM orders) AS total_orders,
-                        (SELECT COUNT(*) FROM products) AS total_products,
-                        (SELECT COUNT(*) FROM sellers) AS total_sellers
-                    """
-                )
-            ).mappings().one()
-
+            result = connection.execute(text("""
+                SELECT
+                    (SELECT COALESCE(SUM(price), 0) FROM order_items) AS total_revenue,
+                    (SELECT COUNT(*) FROM orders) AS total_orders,
+                    (SELECT COUNT(*) FROM products) AS total_products,
+                    (SELECT COUNT(*) FROM sellers) AS total_sellers
+            """)).mappings().one()
         return {
             "total_revenue": float(result["total_revenue"]),
             "total_orders": int(result["total_orders"]),
@@ -122,72 +109,81 @@ def get_dashboard_stats():
             "total_sellers": int(result["total_sellers"]),
             "currency": "BRL"
         }
-
     except Exception:
-        raise HTTPException(
-            status_code=500,
-            detail="Unable to load dashboard statistics."
-        )
-
+        raise HTTPException(status_code=500, detail="Unable to load dashboard statistics.")
 
 
 @app.post("/analyze")
 def analyze(request: AnalysisRequest):
+    # If no ID was supplied, create a fresh conversation (legacy clients).
+    conversation_id = request.conversation_id or str(uuid4())
     try:
-        result = agent.invoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": request.question
-                    }
-                ]
-            }
-        )
+        # Keep legacy invocation config unchanged when the client omits the ID,
+        # to preserve compatibility with existing tests and mocked agents.
+        config = {"recursion_limit": 15}
+        if request.conversation_id is not None:
+            config["configurable"] = {"thread_id": conversation_id}
+        else:
+            # LangGraph checkpointers require a thread_id for every invocation.
+            config["configurable"] = {"thread_id": conversation_id}
 
-        final_message = result["messages"][-1]
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": request.question}]},
+            config=config
+        )
+        messages = result["messages"]
+        final_message = messages[-1]
+
+        # Checkpointing returns the entire conversation. Only expose artifacts
+        # produced after the latest user message, not from previous turns.
+        last_user_index = -1
+        for index, message in enumerate(messages):
+            if getattr(message, "type", None) == "human":
+                last_user_index = index
+        current_turn_messages = messages[last_user_index + 1:]
 
         charts = []
         reports = []
-
-        for message in result["messages"]:
-            if message.type != "tool":
+        tables = []
+        for message in current_turn_messages:
+            if getattr(message, "type", None) != "tool":
                 continue
-
-            if message.name == "create_chart":
-                if "CHART_ERROR" not in str(message.content):
-                    chart_filename = Path(str(message.content)).name
-
-                    charts.append(
-                        f"/charts/{chart_filename}"
-                    )
-
+            content = str(message.content).strip()
+            if message.name == "execute_database_query":
+                artifact = getattr(message, "artifact", None)
+                if isinstance(artifact, dict):
+                    tables.append(jsonable_encoder(artifact))
+            elif message.name == "create_chart":
+                chart_path = Path(content)
+                if chart_path.suffix.lower() == ".png" and "CHART_ERROR" not in content:
+                    charts.append(f"/charts/{chart_path.name}")
             elif message.name == "export_report":
-                if "REPORT_ERROR" not in str(message.content):
-                    report_filename = Path(str(message.content)).name
+                report_path = Path(content)
+                if report_path.suffix.lower() == ".md" and "REPORT_ERROR" not in content:
+                    reports.append(f"/reports/{report_path.name}")
 
-                    reports.append(
-                        f"/reports/{report_filename}"
-                    )
+        # Display only the latest successful SQL result as the primary table.
+        # Earlier results remain available to clients for inspection/debugging.
+        # Do not interpret a numeric zero as missing data: that requires SQL evidence.
+        primary_tables = tables[-1:] if tables else []
+        intermediate_tables = tables[:-1]
 
         return {
             "question": request.question,
+            "conversation_id": conversation_id,
             "answer": final_message.content,
             "charts": charts,
-            "reports": reports
+            "reports": reports,
+            "tables": primary_tables,
+            "intermediate_tables": intermediate_tables
         }
-
-    except Exception as error:
-        raise HTTPException(
-            status_code=500,
-            detail=str(error)
-        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Unable to complete the analysis.")
 
 
 @app.get("/monitoring/status")
 def monitoring_status():
     database_status = "offline"
-
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
@@ -197,19 +193,8 @@ def monitoring_status():
 
     charts_directory = BASE_DIR / "outputs" / "charts"
     reports_directory = BASE_DIR / "outputs" / "reports"
-
-    charts_count = (
-        len(list(charts_directory.glob("*.png")))
-        if charts_directory.exists()
-        else 0
-    )
-
-    reports_count = (
-        len(list(reports_directory.glob("*.md")))
-        if reports_directory.exists()
-        else 0
-    )
-
+    charts_count = len(list(charts_directory.glob("*.png"))) if charts_directory.exists() else 0
+    reports_count = len(list(reports_directory.glob("*.md"))) if reports_directory.exists() else 0
     return {
         "api": "online",
         "database": database_status,
@@ -217,4 +202,3 @@ def monitoring_status():
         "charts_generated": charts_count,
         "reports_generated": reports_count
     }
-

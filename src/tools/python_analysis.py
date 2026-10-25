@@ -1,6 +1,6 @@
-#Python data analysis
 
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
 
 from src.tools.query_database import query_database
 
@@ -14,17 +14,26 @@ def analyze_query_result(query, operation, column=None):
     if operation == "describe":
         return df.describe(include="all").to_string()
 
-    if operation == "mean":
+    if operation in ["mean", "median"]:
         if column not in df.columns:
             raise ValueError(f"Column not found: {column}")
 
-        return f"{column} mean: {df[column].mean():.2f}"
+        if not is_numeric_dtype(df[column]):
+            raise ValueError(f"Column '{column}' must be numeric.")
 
-    if operation == "median":
-        if column not in df.columns:
-            raise ValueError(f"Column not found: {column}")
+        valid_values = df[column].dropna()
 
-        return f"{column} median: {df[column].median():.2f}"
+        if valid_values.empty:
+            raise ValueError(
+                f"Column '{column}' has no valid numeric values."
+            )
+
+        if operation == "mean":
+            result = valid_values.mean()
+        else:
+            result = valid_values.median()
+
+        return f"{column} {operation}: {result:.2f}"
 
     if operation == "correlation":
         numeric_df = df.select_dtypes(include="number")

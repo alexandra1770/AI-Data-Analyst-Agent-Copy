@@ -1,7 +1,7 @@
-#export analysis report
 
 from pathlib import Path
 from datetime import datetime
+from uuid import uuid4
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -17,7 +17,18 @@ def export_analysis_report(
     chart_path=None,
     filename="analysis_report.md"
 ):
-    output_path = OUTPUT_DIR / filename
+    if not isinstance(filename, str) or not filename.strip():
+        raise ValueError("Invalid report filename.")
+
+    if Path(filename).name != filename:
+        raise ValueError("Invalid report filename.")
+
+    if Path(filename).suffix.lower() != ".md":
+        raise ValueError("Report filename must end with .md.")
+
+    output_path = OUTPUT_DIR / (
+        f"{Path(filename).stem}_{uuid4().hex[:12]}.md"
+    )
 
     report_content = f"""# {title}
 
@@ -31,10 +42,11 @@ def export_analysis_report(
 """
 
     if chart_path:
+        chart_name = Path(chart_path).name
         report_content += f"""
 ## Chart
 
-![Analysis Chart]({chart_path})
+![Analysis Chart](../charts/{chart_name})
 """
 
     report_content += f"""
