@@ -6,7 +6,7 @@
 
 
 
-AI Data Analyst Agent allows users to explore e-commerce data using natural-language questions. The application combines an LLM-powered agent with database querying, Python-based analysis, interactive visualizations, and report generation.
+AI Data Analyst Agent allows users to explore e-commerce data using natural-language questions. It combines an LLM-powered agent with SQL querying, Python-based analysis, chart generation, and report exports.
 
 
 
@@ -14,25 +14,25 @@ AI Data Analyst Agent allows users to explore e-commerce data using natural-lang
 
 
 
-\- \*\*Natural Language Analytics\*\* — Ask business questions without writing SQL manually.
+\- \*\*Natural Language Analytics\*\* — Ask business questions without manually writing SQL.
 
-\- \*\*AI Agent with LangGraph\*\* — Coordinate analytical tasks using a stateful agent workflow.
+\- \*\*LangGraph AI Agent\*\* — Coordinate analytical tasks using a stateful agent workflow.
 
-\- \*\*PostgreSQL Integration\*\* — Analyze structured e-commerce data stored in a relational database.
+\- \*\*PostgreSQL Integration\*\* — Query structured e-commerce data.
 
-\- \*\*Read-Only SQL Access\*\* — Use a restricted database role and SQL validation to reduce the risk of unauthorized modifications.
+\- \*\*Read-Only SQL Access\*\* — Use a restricted database role and SQL validation to reduce the risk of data modification.
 
 \- \*\*Python Data Analysis\*\* — Process query results and perform analytical calculations.
 
-\- \*\*Data Visualization\*\* — Generate charts to communicate trends and business insights.
+\- \*\*Data Visualization\*\* — Generate charts for business trends and insights.
 
 \- \*\*Report Generation\*\* — Export analysis results as Markdown reports.
 
-\- \*\*React Dashboard\*\* — Interact with the agent and view analytical results through a web interface.
+\- \*\*React Dashboard\*\* — Ask questions and view results through a web interface.
 
-\- \*\*Automated Testing\*\* — Validate application behavior with Pytest.
+\- \*\*Automated Testing\*\* — Test application behavior with Pytest.
 
-\- \*\*CI/CD Pipeline\*\* — Run automated tests and publish Docker images using GitHub Actions.
+\- \*\*CI/CD\*\* — Test, build, and publish Docker images with GitHub Actions.
 
 
 
@@ -42,9 +42,9 @@ AI Data Analyst Agent allows users to explore e-commerce data using natural-lang
 
 | Layer | Technologies |
 
-|---|---|
+| --- | --- |
 
-| AI Agent | LangGraph, Groq LLM |
+| AI Agent | LangGraph, Groq |
 
 | Backend | Python, FastAPI |
 
@@ -132,15 +132,15 @@ Response to User
 
 
 
-The project uses the Brazilian E-Commerce Public Dataset by Olist.
+The project uses the \*\*Brazilian E-Commerce Public Dataset by Olist\*\*.
 
 
 
-The local development database contains 99,441 order records, supporting the exploration of business metrics and e-commerce trends.
+The local development database contains \*\*99,441 order records\*\*, enabling exploration of sales trends and business metrics.
 
 
 
-Example analytical questions:
+Example questions:
 
 
 
@@ -160,13 +160,11 @@ Example analytical questions:
 
 
 
-The FastAPI backend exposes endpoints for application interaction and monitoring.
-
-
-
 | Endpoint | Description |
 
-|---|---|
+| --- | --- |
+
+| `GET /` | Root endpoint |
 
 | `GET /health` | Application health check |
 
@@ -176,9 +174,11 @@ The FastAPI backend exposes endpoints for application interaction and monitoring
 
 | `GET /dashboard/stats` | Dashboard statistics |
 
+| `GET /reports/list` | List generated reports |
 
 
-Generated charts and reports can also be accessed through the backend's configured static routes.
+
+The backend also serves generated charts and reports through configured static routes.
 
 
 
@@ -232,7 +232,7 @@ pip install -r requirements.txt
 
 
 
-Configure a local `.env` file with the required database connection settings and Groq API key.
+Create a local `.env` file with your own database credentials and Groq API key:
 
 
 
@@ -254,7 +254,11 @@ GROQ\_API\_KEY=your\_groq\_api\_key
 
 
 
-The PostgreSQL database must be initialized separately. The example CI database contains only a minimal test schema and is not a replacement for the analytical dataset.
+\*\*Never commit your `.env` file or real API keys.\*\*
+
+
+
+The analytical PostgreSQL database must be initialized separately. The minimal database schema used by CI is intended for automated tests, not full analytics.
 
 
 
@@ -278,7 +282,7 @@ Backend URL: `http://localhost:8000`
 
 
 
-Open a second terminal:
+In a second terminal:
 
 
 
@@ -302,7 +306,7 @@ Frontend URL: `http://localhost:5173`
 
 
 
-The backend can also be started with Docker Compose:
+To start the backend with Docker Compose:
 
 
 
@@ -314,7 +318,7 @@ docker compose up --build -d
 
 
 
-The Compose configuration is intended for local development and uses the database connection defined in the local environment.
+The local Compose setup uses environment variables from `.env` and connects to the PostgreSQL instance configured for local development.
 
 
 
@@ -322,7 +326,7 @@ The Compose configuration is intended for local development and uses the databas
 
 
 
-Run the test suite:
+Run the tests:
 
 
 
@@ -334,7 +338,7 @@ python -m pytest -q
 
 
 
-The project includes tests covering API endpoints, agent behavior, database connectivity, SQL security, analytical tools, chart generation, and report exports.
+The test suite covers API endpoints, agent behavior, database connectivity, SQL validation, analysis tools, chart generation, and report exports. Database integration tests require an available PostgreSQL instance.
 
 
 
@@ -342,11 +346,11 @@ The project includes tests covering API endpoints, agent behavior, database conn
 
 
 
-GitHub Actions automatically runs on pushes and pull requests targeting the `main` branch.
+GitHub Actions runs on pushes and pull requests targeting `main`.
 
 
 
-The pipeline:
+The workflow:
 
 
 
@@ -356,11 +360,11 @@ The pipeline:
 
 3\. Installs Python dependencies.
 
-4\. Runs the automated test suite.
+4\. Runs the automated tests.
 
 5\. Builds the backend Docker image.
 
-6\. Publishes the image to GitHub Container Registry on pushes to `main`.
+6\. Publishes the image to GHCR on pushes to `main`.
 
 
 
@@ -376,7 +380,7 @@ ghcr.io/alexandra1770/ai-data-analyst-agent-copy:latest
 
 
 
-The container package is currently private and requires authorization to download.
+The GHCR package is currently private and requires authorization to download.
 
 
 
@@ -384,23 +388,19 @@ The container package is currently private and requires authorization to downloa
 
 
 
-The application incorporates several database security measures:
+\- A restricted PostgreSQL role supports read-only analytical access.
+
+\- SQL validation provides an additional safeguard against unsafe queries.
+
+\- Credentials are configured through environment variables.
+
+\- Local `.env` files are excluded from Git and Docker builds.
+
+\- GitHub Actions uses isolated PostgreSQL test credentials.
 
 
 
-\- A restricted PostgreSQL role for read-only analytical access.
-
-\- SQL query validation.
-
-\- Environment-based configuration for credentials.
-
-\- Exclusion of local `.env` files from Git and Docker builds.
-
-\- Isolated PostgreSQL test credentials in GitHub Actions.
-
-
-
-The application should be deployed with appropriate authentication, resource limits, and API usage protections before being exposed to unrestricted public traffic.
+Before opening a public demo to unrestricted traffic, add appropriate authentication, request limits, and API usage protections.
 
 
 
@@ -436,7 +436,7 @@ The application should be deployed with appropriate authentication, resource lim
 
 \- Cloud deployment and public demo
 
-\- Improved observability and structured logging
+\- Structured logging and monitoring
 
 \- Automated evaluation of analytical responses
 
@@ -463,4 +463,6 @@ GitHub: \[alexandra1770](https://github.com/alexandra1770)
 
 
 \*An AI engineering portfolio project demonstrating agentic workflows, natural-language data analysis, backend development, database security, automated testing, and containerized CI/CD.\*
+
+
 
