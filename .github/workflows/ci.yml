@@ -14,6 +14,29 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_user -d test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: test_db
+      DB_USER: test_user
+      DB_PASSWORD: test_password
+      GROQ_API_KEY: test_key
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,6 +50,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Initialize test database
+        run: psql -h localhost -U test_user -d test_db -f .github/sql/init.sql
+        env:
+          PGPASSWORD: test_password
 
       - name: Run tests
         run: python -m pytest -q
