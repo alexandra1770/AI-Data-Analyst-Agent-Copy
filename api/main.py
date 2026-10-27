@@ -16,6 +16,7 @@ from sqlalchemy import text
 
 from src.agent import agent
 from src.database import engine
+from src.guardrails.input_guardrails import validate_user_input
 
 
 # Incarca variabilele de mediu, inclusiv cheile Langfuse
@@ -96,15 +97,8 @@ class AnalysisRequest(BaseModel):
     @field_validator("question")
     @classmethod
     def validate_question(cls, value):
-        value = value.strip()
-
-        if not value:
-            raise ValueError("Question cannot be empty.")
-
-        if len(value) > 2000:
-            raise ValueError("Question is too long.")
-
-        return value
+        # Verifica intrebarea folosind Input Guardrails
+        return validate_user_input(value)
 
     @field_validator("conversation_id")
     @classmethod
