@@ -6,33 +6,43 @@ from langchain_core.messages import HumanMessage
 
 from src.agent import agent
 
-load_dotenv()
 
-langfuse = get_client()
-langfuse_handler = CallbackHandler()
+def main():
+    # Incarca variabilele din .env
+    load_dotenv()
 
-question = "How many orders are in the database?"
+    # Initializeaza Langfuse
+    langfuse = get_client()
+    langfuse_handler = CallbackHandler()
 
-print("Running agent with Langfuse tracing...")
+    # Intrebare de test
+    question = "How many orders are in the database?"
 
-result = agent.invoke(
-    {
-        "messages": [
-            HumanMessage(content=question)
-        ]
-    },
-    config={
-        "configurable": {
-            "thread_id": "langfuse-test-001"
+    print("Running agent with Langfuse tracing...")
+
+    result = agent.invoke(
+        {
+            "messages": [
+                HumanMessage(content=question)
+            ]
         },
-        "callbacks": [langfuse_handler],
-        "recursion_limit": 20,
-    },
-)
+        config={
+            "configurable": {
+                "thread_id": "langfuse-test-001"
+            },
+            "callbacks": [langfuse_handler],
+            "recursion_limit": 20,
+        },
+    )
 
-print("\n=== AGENT RESPONSE ===")
-print(result["messages"][-1].content)
+    print("\n=== AGENT RESPONSE ===")
+    print(result["messages"][-1].content)
 
-langfuse.flush()
+    # Trimite evenimentele ramase catre Langfuse
+    langfuse.flush()
 
-print("\nLangfuse tracing completed.")
+    print("\nLangfuse tracing completed.")
+
+
+if __name__ == "__main__":
+    main()
