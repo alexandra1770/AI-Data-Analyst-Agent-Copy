@@ -15,7 +15,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from typing_extensions import TypedDict
 
 from src.tools.inspect_schema import inspect_schema
-from src.tools.query_database import query_database
+from src.mcp_server.client import call_mcp_tool
 from src.tools.python_analysis import analyze_query_result
 from src.tools.create_chart import create_chart_from_query
 from src.tools.export_report import export_analysis_report
@@ -38,20 +38,28 @@ class AgentState(TypedDict):
 
 # create agent tools
 
+
 @tool
 def inspect_database_schema():
-    """Return the database tables, columns, and foreign-key relationships."""
-    schema = inspect_schema()
+    """Return database tables, columns, and foreign-key relationships through MCP."""
+    schema = call_mcp_tool("inspect_database_schema")
     lines = []
 
     for table_name, table_info in schema.items():
-        columns = [column["name"] for column in table_info["columns"]]
+        columns = [
+            column["name"]
+            for column in table_info["columns"]
+        ]
+
         lines.append(f"{table_name}: {', '.join(columns)}")
 
         for fk in table_info["foreign_keys"]:
+            source_columns = ", ".join(fk["columns"])
+            target_columns = ", ".join(fk["referenced_columns"])
+
             lines.append(
-                f"FK {table_name}.{fk['columns'][0]} -> "
-                f"{fk['referenced_table']}.{fk['referenced_columns'][0]}"
+                f"FK {table_name}.({source_columns}) -> "
+                f"{fk['referenced_table']}.({target_columns})"
             )
 
     return "\n".join(lines)
@@ -59,17 +67,33 @@ def inspect_database_schema():
 
 @tool(response_format="content_and_artifact")
 def execute_database_query(query: str):
-    """Execute a read-only PostgreSQL query and return text and structured results."""
+    """Execute a read-only PostgreSQL query through MCP and return structured results."""
     try:
-        dataframe = query_database(query)
-        content = dataframe.to_string(index=False)
+        result = call_mcp_tool(
+            "execute_database_query",
+            {"query": query}
+        )
+
+        columns = result["columns"]
+        rows = result["rows"]
+
+        if rows:
+            content = "\n".join(
+                " | ".join(
+                    f"{column}: {row.get(column)}"
+                    for column in columns
+                )
+                for row in rows
+            )
+        else:
+            content = "Query returned no rows."
+
         artifact = {
-            "columns": dataframe.columns.tolist(),
-            "rows": dataframe.astype(object).where(
-                dataframe.notna(), None
-            ).to_dict(orient="records"),
-            "row_count": len(dataframe)
+            "columns": columns,
+            "rows": rows,
+            "row_count": result["row_count"]
         }
+
         return content, artifact
     except Exception as error:
         return f"SQL_ERROR: {str(error)}", None

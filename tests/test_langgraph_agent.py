@@ -204,15 +204,14 @@ def test_agent_handles_sql_tool_error(monkeypatch):
         fake_llm
     )
 
-    def fake_query(query):
+    def fake_mcp_tool(tool_name, arguments=None):
         raise ValueError("Table does not exist.")
 
     monkeypatch.setattr(
         agent_module,
-        "query_database",
-        fake_query
+        "call_mcp_tool",
+        fake_mcp_tool
     )
-
     result = agent_module.agent.invoke(
         {
             "messages": [
