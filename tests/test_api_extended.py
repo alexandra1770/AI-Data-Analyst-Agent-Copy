@@ -318,3 +318,44 @@ def test_safe_input_reaches_agent(question):
     agent_input = mock_invoke.call_args.args[0]
     assert agent_input["messages"][0]["content"] == question
 
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "API key: gsk_abcdefghijklmnopqrstuvwxyz123456",
+        "Secret: sk-lf-abcdefghijklmnopqrstuvwxyz123456",
+        "Database: postgresql://user:password@localhost:5432/testdb",
+    ]
+)
+def test_sensitive_agent_output_is_blocked(answer):
+    with patch(
+        "api.main.agent.invoke",
+        return_value=mock_agent_response(answer)
+    ):
+        response = client.post(
+            "/analyze",
+            json={"question": "Analyze sales"}
+        )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == (
+        "Unable to complete the analysis."
+    )
+    assert answer not in response.text
+
+
+def test_safe_agent_output_is_returned():
+    answer = "There are 99441 orders in the database."
+
+    with patch(
+        "api.main.agent.invoke",
+        return_value=mock_agent_response(answer)
+    ):
+        response = client.post(
+            "/analyze",
+            json={"question": "How many orders are in the database?"}
+        )
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == answer
+

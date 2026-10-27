@@ -1,6 +1,4 @@
 
-# Creating FastAPI application
-
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -17,9 +15,9 @@ from sqlalchemy import text
 from src.agent import agent
 from src.database import engine
 from src.guardrails.input_guardrails import validate_user_input
+from src.guardrails.output_guardrails import validate_agent_output
 
 
-# Incarca variabilele de mediu, inclusiv cheile Langfuse
 load_dotenv()
 
 
@@ -90,14 +88,11 @@ app.mount(
 
 class AnalysisRequest(BaseModel):
     question: str
-
-    # Optional for backward compatibility with existing API clients and tests.
     conversation_id: str | None = None
 
     @field_validator("question")
     @classmethod
     def validate_question(cls, value):
-        # Verifica intrebarea folosind Input Guardrails
         return validate_user_input(value)
 
     @field_validator("conversation_id")
@@ -165,29 +160,23 @@ def get_dashboard_stats():
 @app.post("/analyze")
 def analyze(request: AnalysisRequest):
 
-    # Genereaza un ID nou daca nu exista o conversatie anterioara
     conversation_id = request.conversation_id or str(uuid4())
 
     try:
-        # Pastreaza configuratia existenta a agentului
         config = {
             "recursion_limit": 15
         }
 
-        # Memoria LangGraph foloseste thread_id
         config["configurable"] = {
             "thread_id": conversation_id
         }
 
-        # Initializeaza Langfuse pentru monitorizarea executiei
         langfuse_handler = CallbackHandler()
 
-        # Inregistreaza apelurile LLM si instrumentele agentului
         config["callbacks"] = [
             langfuse_handler
         ]
 
-        # Executa agentul LangGraph
         result = agent.invoke(
             {
                 "messages": [
@@ -203,8 +192,8 @@ def analyze(request: AnalysisRequest):
         messages = result["messages"]
         final_message = messages[-1]
 
-        # Checkpointing returns the entire conversation.
-        # Only expose artifacts produced after the latest user message.
+        safe_answer = validate_agent_output(final_message.content)
+
         last_user_index = -1
 
         for index, message in enumerate(messages):
@@ -259,14 +248,13 @@ def analyze(request: AnalysisRequest):
                         f"/reports/{report_path.name}"
                     )
 
-        # Afiseaza ultimul rezultat SQL ca tabel principal
         primary_tables = tables[-1:] if tables else []
         intermediate_tables = tables[:-1]
 
         return {
             "question": request.question,
             "conversation_id": conversation_id,
-            "answer": final_message.content,
+            "answer": safe_answer,
             "charts": charts,
             "reports": reports,
             "tables": primary_tables,
