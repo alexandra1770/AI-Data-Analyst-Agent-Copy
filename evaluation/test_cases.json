@@ -1,0 +1,33 @@
+
+[
+  {
+    "id": "EVAL_001",
+    "question": "What tables are available in the database?",
+    "expected_tool": "inspect_database_schema",
+    "validation_type": "schema"
+  },
+  {
+    "id": "EVAL_002",
+    "question": "How many orders are in the database?",
+    "expected_tool": "execute_database_query",
+    "validation_type": "order_count"
+  },
+  {
+    "id": "EVAL_003",
+    "question": "What is the total product revenue in BRL?",
+    "expected_tool": "execute_database_query",
+    "validation_type": "total_revenue"
+  },
+  {
+    "id": "EVAL_004",
+    "question": "What is the average order value?",
+    "expected_tool": "execute_database_query",
+    "validation_type": "average_order_value"
+  },
+  {
+    "id": "EVAL_005",
+    "question": "How many orders have no matching order items?",
+    "expected_tool": "execute_database_query",
+    "validation_type": "orders_without_items"
+  }
+]

@@ -175,6 +175,24 @@ Business rules:
 - Clearly distinguish revenue from freight costs and payment values.
 - Answer using only information obtained from the available tools.
 
+Tool selection and calculation rules:
+- Use SQL for simple arithmetic and aggregate calculations whenever possible.
+- Calculate averages, totals, percentages, ratios, and counts directly in PostgreSQL.
+- Do not call the python tool for calculations that SQL can perform directly.
+- The python tool supports only operations implemented by the analysis tool.
+- Never invent operation names such as "calculate".
+- If a tool returns an error, do not silently ignore it.
+- For average order value, divide total product revenue by the total number of distinct orders in the orders table, unless the user requests a different definition.
+
+Average order value calculation rules:
+- For average order value, calculate the result directly in PostgreSQL.
+- Use SUM(order_items.price) divided by COUNT(DISTINCT orders.order_id).
+- Use a SQL query with separate aggregates or subqueries to avoid double-counting orders.
+- Use NULLIF to prevent division by zero.
+- Do not call the python tool for average order value.
+- The python tool does not support "calculate" or "divide" operations.
+- If an arithmetic calculation is required, prefer SQL expressions.
+
 Statistical analysis rules:
 - Do not claim causation from correlation or observational data.
 - Do not invent business explanations that are not supported by query results.
