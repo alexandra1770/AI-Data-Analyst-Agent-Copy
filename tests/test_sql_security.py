@@ -41,3 +41,31 @@ def test_unsafe_queries_are_rejected(query):
 def test_invalid_sql_is_rejected():
     with pytest.raises(ValueError):
         validate_query("SELECT FROM WHERE")
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "SELECT * FROM pg_catalog.pg_user",
+        "SELECT * FROM information_schema.tables",
+        "SELECT * FROM secret_table",
+        "SELECT * FROM orders JOIN secret_table ON TRUE",
+        "WITH hidden AS (SELECT * FROM secret_table) SELECT * FROM hidden",
+    ],
+)
+def test_unauthorized_tables_are_rejected(query):
+    with pytest.raises(ValueError):
+        validate_query(query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "SELECT pg_sleep(10)",
+        "SELECT pg_read_file('/etc/passwd')",
+        "SELECT set_config('search_path', 'public', false)",
+    ],
+)
+def test_dangerous_functions_are_rejected(query):
+    with pytest.raises(ValueError):
+        validate_query(query)
