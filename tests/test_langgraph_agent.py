@@ -141,15 +141,20 @@ def test_agent_executes_tool_and_continues(monkeypatch):
         fake_llm
     )
 
-    monkeypatch.setattr(
-        agent_module,
-        "inspect_schema",
-        lambda: {
+    def fake_mcp_tool(tool_name, arguments=None):
+        assert tool_name == "inspect_database_schema"
+
+        return {
             "orders": {
                 "columns": [{"name": "order_id"}],
                 "foreign_keys": []
             }
         }
+
+    monkeypatch.setattr(
+        agent_module,
+        "call_mcp_tool",
+        fake_mcp_tool
     )
 
     result = agent_module.agent.invoke(
@@ -212,6 +217,7 @@ def test_agent_handles_sql_tool_error(monkeypatch):
         "call_mcp_tool",
         fake_mcp_tool
     )
+
     result = agent_module.agent.invoke(
         {
             "messages": [
